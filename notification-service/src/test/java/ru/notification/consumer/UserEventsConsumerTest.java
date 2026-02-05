@@ -34,7 +34,6 @@ class UserEventsConsumerTest {
 
     @Test
     void consumeUserEvent_ShouldSendWelcomeEmail_ForCreateEvent() throws Exception {
-        // Given
         String eventJson = "{\"eventType\":\"CREATE\",\"email\":\"test@example.com\",\"name\":\"Test User\",\"userId\":1}";
         UserEventDTO event = new UserEventDTO();
         event.setEventType(EventType.CREATE);
@@ -44,10 +43,8 @@ class UserEventsConsumerTest {
 
         when(objectMapper.readValue(eventJson, UserEventDTO.class)).thenReturn(event);
 
-        // When
         userEventsConsumer.consumeUserEvent(eventJson);
 
-        // Then
         verify(emailService, times(1))
                 .sendUserCreationEmail(emailCaptor.capture(), nameCaptor.capture());
 
