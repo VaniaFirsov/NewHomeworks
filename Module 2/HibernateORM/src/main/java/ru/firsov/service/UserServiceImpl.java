@@ -1,6 +1,8 @@
 package ru.firsov.service;
 
 import ru.firsov.User;
+import ru.firsov.dto.EventType;
+import ru.firsov.dto.UserEventDTO;
 import ru.firsov.dto.UserRequestDTO;
 import ru.firsov.dto.UserResponseDTO;
 import ru.firsov.exception.UserNotFoundException;
@@ -38,13 +40,14 @@ public class UserServiceImpl implements UserService {
         user.setAge(userRequestDTO.getAge());
 
         User savedUser = userRepository.save(user);
-        log.info("Пользователь создан: id={}, email={}",
-                savedUser.getId(), savedUser.getEmail());
 
-        userEventProducer.sendUserEvent("CREATE",
+        UserEventDTO event = new UserEventDTO(
+                EventType.CREATE,
                 savedUser.getEmail(),
                 savedUser.getName(),
-                savedUser.getId());
+                savedUser.getId()
+        );
+        userEventProducer.sendUserEvent(event);
 
         return mapToResponseDTO(savedUser);
     }
@@ -122,13 +125,16 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new UserNotFoundException("Пользователь с id " + id + " не найден"));
 
         userRepository.deleteById(id);
-        log.info("Пользователь удален: id={}", id);
 
-        userEventProducer.sendUserEvent("DELETE",
+        // Отправить событие в Kafka
+        UserEventDTO event = new UserEventDTO(
+                EventType.DELETE,
                 user.getEmail(),
                 user.getName(),
-                user.getId());
-    }
+                user.getId()
+        );
+        userEventProducer.sendUserEvent(event);
+}
 
     private UserResponseDTO mapToResponseDTO(User user) {
         UserResponseDTO dto = new UserResponseDTO();

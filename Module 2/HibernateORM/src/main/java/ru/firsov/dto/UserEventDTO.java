@@ -1,17 +1,21 @@
 package ru.firsov.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 @Data
 public class UserEventDTO {
-    private String eventType; // "CREATE" или "DELETE"
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
+    private EventType eventType;
+
     private String email;
     private String name;
     private Long userId;
 
     public UserEventDTO() {}
 
-    public UserEventDTO(String eventType, String email, String name, Long userId) {
+    public UserEventDTO(EventType eventType, String email, String name, Long userId) {
         this.eventType = eventType;
         this.email = email;
         this.name = name;
