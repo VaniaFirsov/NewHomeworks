@@ -1,10 +1,9 @@
 package ru.firsov.service;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import ru.firsov.User;
-import ru.firsov.dto.EventType;
-import ru.firsov.dto.UserEventDTO;
-import ru.firsov.dto.UserRequestDTO;
-import ru.firsov.dto.UserResponseDTO;
+import ru.firsov.client.NotificationClient;
+import ru.firsov.dto.*;
 import ru.firsov.exception.UserNotFoundException;
 import ru.firsov.model.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,25 +20,27 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final UserEventProducer userEventProducer;
+    private final NotificationClient notificationClient;
 
     @Override
     @Transactional
+    @CircuitBreaker(name = "notificationService", fallbackMethod = "createUserFallback")
     public UserResponseDTO createUser(UserRequestDTO userRequestDTO) {
         log.info("Создание пользователя: email={}", userRequestDTO.getEmail());
 
-        // Проверка уникальности email
         if (userRepository.existsByEmail(userRequestDTO.getEmail())) {
             throw new IllegalArgumentException("Пользователь с email " +
                     userRequestDTO.getEmail() + " уже существует");
         }
 
-        // Создание пользователя
         User user = new User();
         user.setName(userRequestDTO.getName().trim());
         user.setEmail(userRequestDTO.getEmail().trim().toLowerCase());
         user.setAge(userRequestDTO.getAge());
 
         User savedUser = userRepository.save(user);
+        log.info("Пользователь создан: id={}, email={}",
+                savedUser.getId(), savedUser.getEmail());
 
         UserEventDTO event = new UserEventDTO(
                 EventType.CREATE,
@@ -49,7 +50,37 @@ public class UserServiceImpl implements UserService {
         );
         userEventProducer.sendUserEvent(event);
 
+        sendWelcomeEmailViaFeign(savedUser);
+
         return mapToResponseDTO(savedUser);
+    }
+
+    public UserResponseDTO createUserFallback(UserRequestDTO userRequestDTO, Throwable t) {
+        log.error("Fallback вызван для createUser: {}", t.getMessage());
+
+        User user = new User();
+        user.setName(userRequestDTO.getName().trim());
+        user.setEmail(userRequestDTO.getEmail().trim().toLowerCase());
+        user.setAge(userRequestDTO.getAge());
+
+        User savedUser = userRepository.save(user);
+
+        log.info("Пользователь сохранен, но email не отправлен (circuit breaker)");
+
+        return mapToResponseDTO(savedUser);
+    }
+
+    private void sendWelcomeEmailViaFeign(User user) {
+        NotificationRequestDTO request = new NotificationRequestDTO();
+        request.setToEmail(user.getEmail());
+        request.setSubject("Добро пожаловать!");
+        request.setMessage(String.format("""
+            Здравствуйте, %s!
+            
+            Ваш аккаунт на сайте был успешно создан.
+            """, user.getName()));
+
+        notificationClient.sendEmail(request);
     }
 
     @Override
