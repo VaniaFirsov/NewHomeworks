@@ -3,18 +3,22 @@ package ru.notification.controller;
 import ru.notification.dto.EmailRequestDTO;
 import ru.notification.service.EmailService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/notifications")
-@RequiredArgsConstructor
-@Slf4j
+// @RequiredArgsConstructor
 public class NotificationController {
 
     private final EmailService emailService;
+    private static final Logger log = LoggerFactory.getLogger(NotificationController.class);
+
+    public NotificationController(EmailService emailService) {
+        this.emailService = emailService;
+    }
 
     @PostMapping("/email")
     public ResponseEntity<Void> sendEmail(@Valid @RequestBody EmailRequestDTO request) {
